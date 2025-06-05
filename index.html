@@ -4,13 +4,11 @@
   <meta charset="UTF-8">
   <title>Student Attendance Tracker</title>
   <script type="module">
-    // Firebase SDK Imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
     import Chart from "https://cdn.jsdelivr.net/npm/chart.js@4.3.0/+esm";
 
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDG-7MtKPqssiB1LFGjs5tyhvrNadhwgMI",
       authDomain: "attendance-fa8d0.firebaseapp.com",
@@ -20,11 +18,9 @@
       appId: "1:673950606296:web:bcab620c2ff98d9ffb08ad"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
     let currentUser;
 
     // Register
@@ -50,7 +46,6 @@
       loadProfile();
     };
 
-    // Load Profile
     async function loadProfile() {
       const docSnap = await getDoc(doc(db, "users", currentUser.uid));
       const data = docSnap.data();
@@ -59,8 +54,10 @@
       document.getElementById('userName').innerText = data.name;
       document.getElementById('userRole').innerText = data.role;
       drawChart(data.attendanceLog);
+
       if (data.role === "admin") {
         document.getElementById('adminPanel').style.display = 'block';
+        loadAllUsers(); // Auto-load for admin
       }
     }
 
@@ -81,12 +78,16 @@
       loadProfile();
     };
 
-    // Draw Chart
+    // Draw Pie Chart
     function drawChart(log) {
       const present = log.filter(e => e.status === "present").length;
       const total = log.length;
       const absent = total - present;
-      new Chart(document.getElementById("attendanceChart"), {
+
+      const ctx = document.getElementById("attendanceChart").getContext("2d");
+      if (window.attendanceChart) window.attendanceChart.destroy(); // Clear old chart
+
+      window.attendanceChart = new Chart(ctx, {
         type: 'pie',
         data: {
           labels: ["Present", "Absent"],
@@ -98,7 +99,7 @@
       });
     }
 
-    // Load all users (Admin)
+    // Admin: Load all users
     window.loadAllUsers = async function () {
       const snap = await getDocs(collection(db, "users"));
       const container = document.getElementById("studentsList");
@@ -127,8 +128,10 @@
     });
   </script>
   <style>
-    body { font-family: Arial; margin: 20px; }
+    body { font-family: Arial; margin: 20px; background: #f8f8f8; }
     #dashboard, #adminPanel { display: none; }
+    canvas { margin-top: 20px; }
+    button { margin-top: 10px; margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -144,13 +147,13 @@
     <h2>Welcome, <span id="userName"></span></h2>
     <p>Role: <span id="userRole"></span></p>
     <button onclick="markAttendance()">Mark Attendance</button>
+    <button onclick="logout()">Logout</button>
     <canvas id="attendanceChart" width="300" height="300"></canvas>
+
     <div id="adminPanel">
       <h3>Admin Panel</h3>
-      <button onclick="loadAllUsers()">Load All Students</button>
       <div id="studentsList"></div>
     </div>
-    <button onclick="logout()">Logout</button>
   </div>
 </body>
 </html>
