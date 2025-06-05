@@ -1,24 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Student Attendance Tracker</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    #dashboard, #adminPanel {
-      display: none;
-    }
-    canvas {
-      display: block;
-      margin: 20px auto;
-    }
-    #adminPanel {
-      border-top: 1px solid #ccc;
-      margin-top: 20px;
-      padding-top: 10px;
+    body { font-family: Arial; margin: 20px; }
+    #dashboard, #adminPanel { display: none; }
+    canvas { max-width: 400px; max-height: 400px; }
+    #studentsList > div {
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
   </style>
 </head>
@@ -35,7 +28,8 @@
     <h2>Welcome, <span id="userName"></span></h2>
     <p>Role: <span id="userRole"></span></p>
     <button onclick="markAttendance()">Mark Attendance</button>
-    <canvas id="attendanceChart" width="300" height="300"></canvas>
+    <br><br>
+    <canvas id="attendanceChart"></canvas>
 
     <div id="adminPanel">
       <h3>Admin Panel</h3>
@@ -43,7 +37,7 @@
       <div id="studentsList"></div>
     </div>
 
-    <button onclick="logout()">Logout</button>
+    <br><button onclick="logout()">Logout</button>
   </div>
 
   <script type="module">
@@ -56,7 +50,7 @@
       apiKey: "AIzaSyDG-7MtKPqssiB1LFGjs5tyhvrNadhwgMI",
       authDomain: "attendance-fa8d0.firebaseapp.com",
       projectId: "attendance-fa8d0",
-      storageBucket: "attendance-fa8d0.firebasestorage.app",
+      storageBucket: "attendance-fa8d0.appspot.com",
       messagingSenderId: "673950606296",
       appId: "1:673950606296:web:bcab620c2ff98d9ffb08ad"
     };
@@ -106,7 +100,10 @@
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('userName').innerText = data.name;
       document.getElementById('userRole').innerText = data.role;
-      drawChart(data.attendanceLog || []);
+
+      if (data.attendanceLog && data.attendanceLog.length > 0) {
+        drawChart(data.attendanceLog);
+      }
 
       if (data.role === "admin") {
         document.getElementById('adminPanel').style.display = 'block';
@@ -121,7 +118,7 @@
       const docSnap = await getDoc(userRef);
       const data = docSnap.data();
 
-      if ((data.attendanceLog || []).some(e => e.date === today)) {
+      if (data.attendanceLog.some(e => e.date === today)) {
         alert("Attendance already marked today.");
         return;
       }
@@ -129,6 +126,7 @@
       await updateDoc(userRef, {
         attendanceLog: arrayUnion({ date: today, status: "present" })
       });
+
       alert("Attendance marked.");
       await loadProfile();
     };
@@ -138,11 +136,8 @@
       const total = log.length;
       const absent = total - present;
 
-      const canvas = document.getElementById("attendanceChart");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-
-      if (window.myChart) window.myChart.destroy();
+      const ctx = document.getElementById("attendanceChart").getContext("2d");
+      if (window.myChart) window.myChart.destroy(); // Avoid chart overlap
 
       window.myChart = new Chart(ctx, {
         type: 'pie',
@@ -152,6 +147,14 @@
             data: [present, absent],
             backgroundColor: ["#4CAF50", "#F44336"]
           }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top'
+            }
+          }
         }
       });
     }
@@ -162,12 +165,15 @@
       container.innerHTML = "";
       snap.forEach(doc => {
         const d = doc.data();
-        const p = (d.attendanceLog || []).filter(l => l.status === "present").length;
-        const t = (d.attendanceLog || []).length;
+        const p = d.attendanceLog.filter(l => l.status === "present").length;
+        const t = d.attendanceLog.length;
         const a = t - p;
-        container.innerHTML += `<div style='margin:10px;padding:10px;border:1px solid #ccc'>
-          <b>${d.name}</b><br>Present: ${p}, Absent: ${a}, Total: ${t}
-        </div>`;
+        container.innerHTML += `
+          <div>
+            <b>${d.name}</b><br>
+            Email: ${d.email}<br>
+            Present: ${p}, Absent: ${a}, Total: ${t}
+          </div>`;
       });
     };
 
