@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Student Attendance Tracker</title>
   <style>
     body { font-family: Arial; margin: 20px; }
     #dashboard, #adminPanel { display: none; }
-    canvas { max-width: 400px; max-height: 400px; }
-    #studentsList > div {
+    #studentsList div {
       margin: 10px;
       padding: 10px;
       border: 1px solid #ccc;
-      border-radius: 5px;
     }
   </style>
 </head>
@@ -28,8 +26,7 @@
     <h2>Welcome, <span id="userName"></span></h2>
     <p>Role: <span id="userRole"></span></p>
     <button onclick="markAttendance()">Mark Attendance</button>
-    <br><br>
-    <canvas id="attendanceChart"></canvas>
+    <canvas id="attendanceChart" width="300" height="300"></canvas>
 
     <div id="adminPanel">
       <h3>Admin Panel</h3>
@@ -37,13 +34,28 @@
       <div id="studentsList"></div>
     </div>
 
-    <br><button onclick="logout()">Logout</button>
+    <button onclick="logout()">Logout</button>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      arrayUnion,
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
     import Chart from "https://cdn.jsdelivr.net/npm/chart.js@4.3.0/+esm";
 
     const firebaseConfig = {
@@ -100,13 +112,11 @@
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('userName').innerText = data.name;
       document.getElementById('userRole').innerText = data.role;
-
-      if (data.attendanceLog && data.attendanceLog.length > 0) {
-        drawChart(data.attendanceLog);
-      }
+      drawChart(data.attendanceLog || []);
 
       if (data.role === "admin") {
         document.getElementById('adminPanel').style.display = 'block';
+        await loadAllUsers(); // Auto-load for admins
       } else {
         document.getElementById('adminPanel').style.display = 'none';
       }
@@ -126,7 +136,6 @@
       await updateDoc(userRef, {
         attendanceLog: arrayUnion({ date: today, status: "present" })
       });
-
       alert("Attendance marked.");
       await loadProfile();
     };
@@ -137,7 +146,7 @@
       const absent = total - present;
 
       const ctx = document.getElementById("attendanceChart").getContext("2d");
-      if (window.myChart) window.myChart.destroy(); // Avoid chart overlap
+      if (window.myChart) window.myChart.destroy();
 
       window.myChart = new Chart(ctx, {
         type: 'pie',
@@ -147,34 +156,37 @@
             data: [present, absent],
             backgroundColor: ["#4CAF50", "#F44336"]
           }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: 'top'
-            }
-          }
         }
       });
     }
 
     window.loadAllUsers = async function () {
-      const snap = await getDocs(collection(db, "users"));
-      const container = document.getElementById("studentsList");
-      container.innerHTML = "";
-      snap.forEach(doc => {
-        const d = doc.data();
-        const p = d.attendanceLog.filter(l => l.status === "present").length;
-        const t = d.attendanceLog.length;
-        const a = t - p;
-        container.innerHTML += `
-          <div>
-            <b>${d.name}</b><br>
-            Email: ${d.email}<br>
-            Present: ${p}, Absent: ${a}, Total: ${t}
-          </div>`;
-      });
+      try {
+        const snap = await getDocs(collection(db, "users"));
+        const container = document.getElementById("studentsList");
+        container.innerHTML = "";
+
+        console.log("Total users:", snap.size);
+
+        snap.forEach(doc => {
+          const d = doc.data();
+          console.log("User data:", d);
+
+          const p = d.attendanceLog?.filter(l => l.status === "present").length || 0;
+          const t = d.attendanceLog?.length || 0;
+          const a = t - p;
+
+          container.innerHTML += `
+            <div>
+              <b>${d.name}</b><br>
+              Email: ${d.email}<br>
+              Present: ${p}, Absent: ${a}, Total: ${t}
+            </div>`;
+        });
+      } catch (e) {
+        console.error("Error loading users:", e);
+        alert("Failed to load users: " + e.message);
+      }
     };
 
     window.logout = function () {
