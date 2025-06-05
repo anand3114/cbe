@@ -4,8 +4,22 @@
   <meta charset="UTF-8">
   <title>Student Attendance Tracker</title>
   <style>
-    body { font-family: Arial; margin: 20px; }
-    #dashboard, #adminPanel { display: none; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #dashboard, #adminPanel {
+      display: none;
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+    }
+    #adminPanel {
+      border-top: 1px solid #ccc;
+      margin-top: 20px;
+      padding-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -53,7 +67,6 @@
     let currentUser;
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Auth listener
       onAuthStateChanged(auth, async (user) => {
         if (user) {
           currentUser = user;
@@ -108,7 +121,7 @@
       const docSnap = await getDoc(userRef);
       const data = docSnap.data();
 
-      if (data.attendanceLog.some(e => e.date === today)) {
+      if ((data.attendanceLog || []).some(e => e.date === today)) {
         alert("Attendance already marked today.");
         return;
       }
@@ -125,8 +138,11 @@
       const total = log.length;
       const absent = total - present;
 
-      const ctx = document.getElementById("attendanceChart").getContext("2d");
-      if (window.myChart) window.myChart.destroy(); // Fix overlapping charts
+      const canvas = document.getElementById("attendanceChart");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+
+      if (window.myChart) window.myChart.destroy();
 
       window.myChart = new Chart(ctx, {
         type: 'pie',
@@ -146,8 +162,8 @@
       container.innerHTML = "";
       snap.forEach(doc => {
         const d = doc.data();
-        const p = d.attendanceLog.filter(l => l.status === "present").length;
-        const t = d.attendanceLog.length;
+        const p = (d.attendanceLog || []).filter(l => l.status === "present").length;
+        const t = (d.attendanceLog || []).length;
         const a = t - p;
         container.innerHTML += `<div style='margin:10px;padding:10px;border:1px solid #ccc'>
           <b>${d.name}</b><br>Present: ${p}, Absent: ${a}, Total: ${t}
