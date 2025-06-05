@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Attendance Tracker</title>
+  <script type="module">
+    // Firebase SDK Imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+    import Chart from "https://cdn.jsdelivr.net/npm/chart.js@4.3.0/+esm";
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDG-7MtKPqssiB1LFGjs5tyhvrNadhwgMI",
+      authDomain: "attendance-fa8d0.firebaseapp.com",
+      projectId: "attendance-fa8d0",
+      storageBucket: "attendance-fa8d0.firebasestorage.app",
+      messagingSenderId: "673950606296",
+      appId: "1:673950606296:web:bcab620c2ff98d9ffb08ad"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser;
+
+    // Register
+    window.register = async function () {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+      await setDoc(doc(db, "users", userCred.user.uid), {
+        email,
+        role: "student",
+        name: email.split('@')[0],
+        attendanceLog: []
+      });
+      alert("User registered. You can login now.");
+    };
+
+    // Login
+    window.login = async function () {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      const userCred = await signInWithEmailAndPassword(auth, email, pass);
+      currentUser = userCred.user;
+      loadProfile();
+    };
+
+    // Load Profile
+    async function loadProfile() {
+      const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+      const data = docSnap.data();
+      document.getElementById('loginDiv').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('userName').innerText = data.name;
+      document.getElementById('userRole').innerText = data.role;
+      drawChart(data.attendanceLog);
+      if (data.role === "admin") {
+        document.getElementById('adminPanel').style.display = 'block';
+      }
+    }
+
+    // Mark Attendance
+    window.markAttendance = async function () {
+      const today = new Date().toISOString().split("T")[0];
+      const userRef = doc(db, "users", currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      const data = docSnap.data();
+      if (data.attendanceLog.some(e => e.date === today)) {
+        alert("Attendance already marked today.");
+        return;
+      }
+      await updateDoc(userRef, {
+        attendanceLog: arrayUnion({ date: today, status: "present" })
+      });
+      alert("Attendance marked.");
+      loadProfile();
+    };
+
+    // Draw Chart
+    function drawChart(log) {
+      const present = log.filter(e => e.status === "present").length;
+      const total = log.length;
+      const absent = total - present;
+      new Chart(document.getElementById("attendanceChart"), {
+        type: 'pie',
+        data: {
+          labels: ["Present", "Absent"],
+          datasets: [{
+            data: [present, absent],
+            backgroundColor: ["#4CAF50", "#F44336"]
+          }]
+        }
+      });
+    }
+
+    // Load all users (Admin)
+    window.loadAllUsers = async function () {
+      const snap = await getDocs(collection(db, "users"));
+      const container = document.getElementById("studentsList");
+      container.innerHTML = "";
+      snap.forEach(doc => {
+        const d = doc.data();
+        const p = d.attendanceLog.filter(l => l.status === "present").length;
+        const t = d.attendanceLog.length;
+        const a = t - p;
+        container.innerHTML += `<div style='margin:10px;padding:10px;border:1px solid #ccc'>
+          <b>${d.name}</b><br>Present: ${p}, Absent: ${a}, Total: ${t}
+        </div>`;
+      });
+    };
+
+    window.logout = function () {
+      signOut(auth);
+      location.reload();
+    };
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        currentUser = user;
+        loadProfile();
+      }
+    });
+  </script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    #dashboard, #adminPanel { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loginDiv">
+    <h2>Login / Register</h2>
+    <input id="email" placeholder="Email"><br>
+    <input id="password" type="password" placeholder="Password"><br>
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+  </div>
+
+  <div id="dashboard">
+    <h2>Welcome, <span id="userName"></span></h2>
+    <p>Role: <span id="userRole"></span></p>
+    <button onclick="markAttendance()">Mark Attendance</button>
+    <canvas id="attendanceChart" width="300" height="300"></canvas>
+    <div id="adminPanel">
+      <h3>Admin Panel</h3>
+      <button onclick="loadAllUsers()">Load All Students</button>
+      <div id="studentsList"></div>
+    </div>
+    <button onclick="logout()">Logout</button>
+  </div>
+</body>
+</html>
